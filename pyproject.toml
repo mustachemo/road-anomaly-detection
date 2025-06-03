@@ -9,7 +9,7 @@ description = "Road anomaly detection using SVM"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
-authors = [{ name = "Your Name", email = "your.email@example.com" }]
+authors = [{ name = "Mohamed Hasan", email = "mhasan1080@gmail.com" }]
 dependencies = [
     "numpy>=1.24.0",
     "pandas>=2.0.0",
