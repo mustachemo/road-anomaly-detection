@@ -1,6 +1,6 @@
-"""Feature processing module for the ROAD dataset."""
+"""Feature processing module for road anomaly detection."""
 
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 from rich.console import Console
@@ -11,13 +11,13 @@ console = Console()
 
 
 class FeatureProcessor:
-    """A class to handle feature processing and engineering for the ROAD dataset.
+    """A class to handle feature processing for anomaly detection.
 
-    This class provides methods for preprocessing data, including normalization,
-    dimensionality reduction, and feature engineering.
+    This class provides methods for preprocessing and dimensionality reduction
+    of input features using PCA and standardization.
 
     Attributes:
-        n_components: Number of components for PCA.
+        n_components: Number of PCA components to use. If None, no PCA is applied.
         scaler: StandardScaler instance for feature normalization.
         pca: PCA instance for dimensionality reduction.
     """
@@ -26,11 +26,23 @@ class FeatureProcessor:
         """Initialize the feature processor.
 
         Args:
-            n_components: Number of components for PCA. If None, no PCA is applied.
+            n_components: Number of PCA components to use. If None, no PCA is applied.
         """
         self.n_components = n_components
         self.scaler = StandardScaler()
         self.pca = PCA(n_components=n_components) if n_components is not None else None
+
+    def _reshape_for_processing(self, X: np.ndarray) -> np.ndarray:
+        """Reshape input data for processing.
+
+        Args:
+            X: Input data array of shape (n_samples, height, width, channels).
+
+        Returns:
+            Reshaped array of shape (n_samples, height * width * channels).
+        """
+        n_samples = X.shape[0]
+        return X.reshape(n_samples, -1)
 
     def fit(self, X: np.ndarray) -> "FeatureProcessor":
         """Fit the feature processor to the data.
@@ -64,63 +76,57 @@ class FeatureProcessor:
 
         return self
 
-    def transform(self, X: np.ndarray) -> np.ndarray:
-        """Transform the input data using the fitted processors.
-
-        Args:
-            X: Input data array of shape (n_samples, n_features).
-
-        Returns:
-            Transformed data array.
-
-        Raises:
-            ValueError: If the input data is invalid or processor is not fitted.
-            RuntimeError: If the processor has not been fitted.
-        """
-        if not isinstance(X, np.ndarray):
-            msg = f"Input must be numpy array, got {type(X)}"
-            console.print(f"[red]Error: {msg}[/red]")
-            raise ValueError(msg)
-
-        if X.ndim != 2:
-            msg = f"Input must be 2D array, got shape {X.shape}"
-            console.print(f"[red]Error: {msg}[/red]")
-            raise ValueError(msg)
-
-        # Check if the processor has been fitted
-        if not hasattr(self.scaler, "mean_"):
-            msg = "FeatureProcessor has not been fitted. Call fit() first."
-            console.print(f"[red]Error: {msg}[/red]")
-            raise RuntimeError(msg)
-
-        # Apply scaling
-        X_scaled = self.scaler.transform(X)
-
-        # Apply PCA if enabled
-        if self.pca is not None:
-            if not hasattr(self.pca, "components_"):
-                msg = "PCA has not been fitted. Call fit() first."
-                console.print(f"[red]Error: {msg}[/red]")
-                raise RuntimeError(msg)
-            X_transformed = self.pca.transform(X_scaled)
-        else:
-            X_transformed = X_scaled
-
-        return X_transformed
-
     def fit_transform(self, X: np.ndarray) -> np.ndarray:
-        """Fit the processor and transform the input data.
+        """Fit the processor to the data and transform it.
 
         Args:
-            X: Input data array of shape (n_samples, n_features).
+            X: Input data array of shape (n_samples, height, width, channels).
 
         Returns:
             Transformed data array.
 
         Raises:
-            ValueError: If the input data is invalid.
+            ValueError: If input data is not 4D.
         """
-        return self.fit(X).transform(X)
+        if len(X.shape) != 4:
+            raise ValueError(f"Input must be 4D array, got shape {X.shape}")
+
+        # Reshape to 2D
+        X_reshaped = self._reshape_for_processing(X)
+
+        # Standardize features
+        X_scaled = self.scaler.fit_transform(X_reshaped)
+
+        # Apply PCA if configured
+        if self.pca is not None:
+            return self.pca.fit_transform(X_scaled)
+        return X_scaled
+
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        """Transform the data using the fitted processor.
+
+        Args:
+            X: Input data array of shape (n_samples, height, width, channels).
+
+        Returns:
+            Transformed data array.
+
+        Raises:
+            ValueError: If input data is not 4D.
+        """
+        if len(X.shape) != 4:
+            raise ValueError(f"Input must be 4D array, got shape {X.shape}")
+
+        # Reshape to 2D
+        X_reshaped = self._reshape_for_processing(X)
+
+        # Standardize features
+        X_scaled = self.scaler.transform(X_reshaped)
+
+        # Apply PCA if configured
+        if self.pca is not None:
+            return self.pca.transform(X_scaled)
+        return X_scaled
 
     def get_feature_importance(self) -> Optional[np.ndarray]:
         """Get feature importance scores from PCA.
