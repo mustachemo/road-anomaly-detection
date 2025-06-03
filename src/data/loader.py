@@ -55,6 +55,7 @@ class ROADDataLoader:
             The ROADDataLoader instance.
         """
         self._file = h5py.File(self.data_path, "r")
+        self._validate_file_structure()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -65,6 +66,48 @@ class ROADDataLoader:
         if self._file is not None:
             self._file.close()
             self._file = None
+
+    def _validate_file_structure(self) -> None:
+        """Validate the HDF5 file structure.
+
+        Raises:
+            ValueError: If the file structure is invalid.
+        """
+        if self._file is None:
+            msg = "Data file is not open. Use the context manager or call open() first."
+            console.print(f"[red]Error: {msg}[/red]")
+            raise RuntimeError(msg)
+
+        required_datasets = ["data", "labels"]
+        for dataset in required_datasets:
+            if dataset not in self._file:
+                msg = f"Required dataset '{dataset}' not found in HDF5 file. Available datasets: {list(self._file.keys())}"
+                console.print(f"[red]Error: {msg}[/red]")
+                raise ValueError(msg)
+
+        # Check data shape
+        data_shape = self._file["data"].shape
+        if len(data_shape) != 3:  # (n_samples, height, width)
+            msg = f"Data must be 3D array (n_samples, height, width), got shape {data_shape}"
+            console.print(f"[red]Error: {msg}[/red]")
+            raise ValueError(msg)
+
+        # Check labels shape
+        labels_shape = self._file["labels"].shape
+        if len(labels_shape) != 1:
+            msg = f"Labels must be 1D array, got shape {labels_shape}"
+            console.print(f"[red]Error: {msg}[/red]")
+            raise ValueError(msg)
+
+        # Check if number of samples matches
+        if data_shape[0] != labels_shape[0]:
+            msg = f"Number of samples in data ({data_shape[0]}) does not match number of labels ({labels_shape[0]})"
+            console.print(f"[red]Error: {msg}[/red]")
+            raise ValueError(msg)
+
+        console.print(f"[green]Validated HDF5 file structure:[/green]")
+        console.print(f"  - Data shape: {data_shape}")
+        console.print(f"  - Labels shape: {labels_shape}")
 
     @property
     def total_samples(self) -> int:
@@ -82,7 +125,6 @@ class ROADDataLoader:
             raise RuntimeError(msg)
 
         if self._total_samples is None:
-            # Assuming the dataset has a 'data' group with samples
             self._total_samples = len(self._file["data"])
         return self._total_samples
 
