@@ -8,6 +8,7 @@ import gradio as gr
 import matplotlib.pyplot as plt
 import numpy as np
 from rich.console import Console
+from rich.progress import Progress
 
 from src.data.loader import ROADDataLoader
 from src.features.processor import FeatureProcessor
@@ -140,7 +141,7 @@ class TrainingVisualizer:
                 total_samples = loader.total_samples
                 n_batches = (total_samples + batch_size - 1) // batch_size
 
-                for batch_idx in progress.track(range(n_batches), desc="Training"):
+                for batch_idx in range(n_batches):
                     start_idx = batch_idx * batch_size
                     X_batch, y_batch = loader.get_batch(start_idx)
 
@@ -152,10 +153,11 @@ class TrainingVisualizer:
                     )
 
                     # Update progress
-                    progress(
-                        batch_idx / n_batches,
-                        desc=f"Batch {batch_idx + 1}/{n_batches}",
-                    )
+                    if progress is not None:
+                        progress(
+                            batch_idx / n_batches,
+                            desc=f"Batch {batch_idx + 1}/{n_batches}",
+                        )
 
             # Generate final plot
             fig = self.plot_training_progress()
