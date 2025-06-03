@@ -24,6 +24,7 @@ def train_model(
     nu: float = 0.1,
     gamma: str = "scale",
     batch_size: int = 32,
+    data_group: str = "train_data",
 ) -> Tuple[AnomalyDetector, FeatureProcessor]:
     """Train the anomaly detection model.
 
@@ -35,6 +36,7 @@ def train_model(
         nu: SVM nu parameter.
         gamma: SVM gamma parameter.
         batch_size: Batch size for data loading.
+        data_group: The group in the HDF5 file to load data from (e.g., 'train_data', 'test_data').
 
     Returns:
         A tuple containing:
@@ -51,7 +53,9 @@ def train_model(
         anomaly_detector = AnomalyDetector(kernel=kernel, nu=nu, gamma=gamma)
 
         # Load and process data
-        with ROADDataLoader(data_path, batch_size=batch_size) as loader:
+        with ROADDataLoader(
+            data_path, batch_size=batch_size, data_group=data_group
+        ) as loader:
             # Get dataset info
             info = loader.get_dataset_info()
             console.print(f"[bold]Dataset Info:[/bold]\n{info}")
@@ -106,6 +110,7 @@ def predict_anomalies(
     model_path: Path,
     feature_processor: FeatureProcessor,
     batch_size: int = 32,
+    data_group: str = "test_data",
 ) -> np.ndarray:
     """Predict anomalies in the input data.
 
@@ -114,6 +119,7 @@ def predict_anomalies(
         model_path: Path to the trained model.
         feature_processor: Fitted FeatureProcessor instance.
         batch_size: Batch size for data loading.
+        data_group: The group in the HDF5 file to load data from (e.g., 'train_data', 'test_data').
 
     Returns:
         Array of predictions (-1 for anomalies, 1 for normal).
@@ -127,7 +133,9 @@ def predict_anomalies(
         anomaly_detector = AnomalyDetector.load(model_path)
 
         # Process and predict data in batches
-        with ROADDataLoader(data_path, batch_size=batch_size) as loader:
+        with ROADDataLoader(
+            data_path, batch_size=batch_size, data_group=data_group
+        ) as loader:
             total_samples = loader.total_samples
             all_predictions = []
 
@@ -169,6 +177,7 @@ def train(
     nu: float = typer.Option(0.1, help="SVM nu parameter"),
     gamma: str = typer.Option("scale", help="SVM gamma parameter"),
     batch_size: int = typer.Option(32, help="Batch size for data loading"),
+    data_group: str = typer.Option("train_data", help="Data group to use for training"),
 ) -> None:
     """Train the anomaly detection model."""
     try:
@@ -180,6 +189,7 @@ def train(
             nu=nu,
             gamma=gamma,
             batch_size=batch_size,
+            data_group=data_group,
         )
         console.print("[bold green]Training completed successfully![/bold green]")
     except Exception as e:
@@ -196,6 +206,9 @@ def predict(
     ),
     n_components: Optional[int] = typer.Option(None, help="Number of PCA components"),
     batch_size: int = typer.Option(32, help="Batch size for data loading"),
+    data_group: str = typer.Option(
+        "test_data", help="Data group to use for prediction"
+    ),
 ) -> None:
     """Predict anomalies in the input data."""
     try:
@@ -203,7 +216,9 @@ def predict(
         feature_processor = FeatureProcessor(n_components=n_components)
 
         # Load a small batch to fit the processor
-        with ROADDataLoader(data_path, batch_size=batch_size) as loader:
+        with ROADDataLoader(
+            data_path, batch_size=batch_size, data_group=data_group
+        ) as loader:
             X_batch, _ = loader.get_batch(0)
             feature_processor.fit(X_batch)
 
@@ -213,6 +228,7 @@ def predict(
             model_path=model_path,
             feature_processor=feature_processor,
             batch_size=batch_size,
+            data_group=data_group,
         )
 
         # Save predictions

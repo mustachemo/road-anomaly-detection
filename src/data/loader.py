@@ -20,14 +20,18 @@ class ROADDataLoader:
     Attributes:
         data_path: Path to the ROAD dataset HDF5 file.
         batch_size: Number of samples to load in each batch.
+        data_group: The group in the HDF5 file to load data from (e.g., 'train_data', 'test_data').
     """
 
-    def __init__(self, data_path: Path, batch_size: int = 32) -> None:
+    def __init__(
+        self, data_path: Path, batch_size: int = 32, data_group: str = "train_data"
+    ) -> None:
         """Initialize the ROAD data loader.
 
         Args:
             data_path: Path to the ROAD dataset HDF5 file.
             batch_size: Number of samples to load in each batch.
+            data_group: The group in the HDF5 file to load data from (e.g., 'train_data', 'test_data').
 
         Raises:
             FileNotFoundError: If the data file does not exist.
@@ -45,6 +49,7 @@ class ROADDataLoader:
 
         self.data_path = data_path
         self.batch_size = batch_size
+        self.data_group = data_group
         self._file: Optional[h5py.File] = None
         self._total_samples: Optional[int] = None
 
@@ -78,22 +83,30 @@ class ROADDataLoader:
             console.print(f"[red]Error: {msg}[/red]")
             raise RuntimeError(msg)
 
+        # Check if the specified data group exists
+        if self.data_group not in self._file:
+            available_groups = list(self._file.keys())
+            msg = f"Data group '{self.data_group}' not found in HDF5 file. Available groups: {available_groups}"
+            console.print(f"[red]Error: {msg}[/red]")
+            raise ValueError(msg)
+
+        group = self._file[self.data_group]
         required_datasets = ["data", "labels"]
         for dataset in required_datasets:
-            if dataset not in self._file:
-                msg = f"Required dataset '{dataset}' not found in HDF5 file. Available datasets: {list(self._file.keys())}"
+            if dataset not in group:
+                msg = f"Required dataset '{dataset}' not found in group '{self.data_group}'. Available datasets: {list(group.keys())}"
                 console.print(f"[red]Error: {msg}[/red]")
                 raise ValueError(msg)
 
         # Check data shape
-        data_shape = self._file["data"].shape
-        if len(data_shape) != 3:  # (n_samples, height, width)
-            msg = f"Data must be 3D array (n_samples, height, width), got shape {data_shape}"
+        data_shape = group["data"].shape
+        if len(data_shape) != 4:  # (n_samples, height, width, channels)
+            msg = f"Data must be 4D array (n_samples, height, width, channels), got shape {data_shape}"
             console.print(f"[red]Error: {msg}[/red]")
             raise ValueError(msg)
 
         # Check labels shape
-        labels_shape = self._file["labels"].shape
+        labels_shape = group["labels"].shape
         if len(labels_shape) != 1:
             msg = f"Labels must be 1D array, got shape {labels_shape}"
             console.print(f"[red]Error: {msg}[/red]")
@@ -106,6 +119,7 @@ class ROADDataLoader:
             raise ValueError(msg)
 
         console.print(f"[green]Validated HDF5 file structure:[/green]")
+        console.print(f"  - Data group: {self.data_group}")
         console.print(f"  - Data shape: {data_shape}")
         console.print(f"  - Labels shape: {labels_shape}")
 
@@ -125,7 +139,7 @@ class ROADDataLoader:
             raise RuntimeError(msg)
 
         if self._total_samples is None:
-            self._total_samples = len(self._file["data"])
+            self._total_samples = len(self._file[self.data_group]["data"])
         return self._total_samples
 
     def get_batch(self, start_idx: int) -> Tuple[np.ndarray, np.ndarray]:
@@ -160,9 +174,9 @@ class ROADDataLoader:
                 f"Loading batch {start_idx}-{end_idx}...", total=end_idx - start_idx
             )
 
-            # Load data and labels
-            data = self._file["data"][start_idx:end_idx]
-            labels = self._file["labels"][start_idx:end_idx]
+            # Load data and labels from the specified group
+            data = self._file[self.data_group]["data"][start_idx:end_idx]
+            labels = self._file[self.data_group]["labels"][start_idx:end_idx]
 
             progress.update(task, completed=end_idx - start_idx)
 
@@ -182,12 +196,14 @@ class ROADDataLoader:
             console.print(f"[red]Error: {msg}[/red]")
             raise RuntimeError(msg)
 
+        group = self._file[self.data_group]
         info = {
+            "data_group": self.data_group,
             "total_samples": self.total_samples,
-            "data_shape": self._file["data"].shape,
-            "label_shape": self._file["labels"].shape,
-            "data_dtype": str(self._file["data"].dtype),
-            "label_dtype": str(self._file["labels"].dtype),
+            "data_shape": group["data"].shape,
+            "label_shape": group["labels"].shape,
+            "data_dtype": str(group["data"].dtype),
+            "label_dtype": str(group["labels"].dtype),
         }
 
         return info

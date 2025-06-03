@@ -102,6 +102,7 @@ class TrainingVisualizer:
     def train_model(
         self,
         data_path: str,
+        data_group: str,
         n_components: Optional[int],
         kernel: str,
         nu: float,
@@ -113,6 +114,7 @@ class TrainingVisualizer:
 
         Args:
             data_path: Path to the dataset.
+            data_group: The group in the HDF5 file to load data from.
             n_components: Number of PCA components.
             kernel: SVM kernel type.
             nu: SVM nu parameter.
@@ -132,7 +134,9 @@ class TrainingVisualizer:
             self.current_batch_labels = []
 
             # Load and process data
-            with ROADDataLoader(Path(data_path), batch_size=batch_size) as loader:
+            with ROADDataLoader(
+                Path(data_path), batch_size=batch_size, data_group=data_group
+            ) as loader:
                 total_samples = loader.total_samples
                 n_batches = (total_samples + batch_size - 1) // batch_size
 
@@ -181,6 +185,11 @@ def create_interface() -> gr.Interface:
                     label="Upload ROAD Dataset (HDF5)",
                     file_types=[".h5", ".hdf5"],
                 )
+                data_group = gr.Dropdown(
+                    label="Data Group",
+                    choices=["train_data", "test_data", "anomaly_data"],
+                    value="train_data",
+                )
                 n_components = gr.Number(
                     label="Number of PCA Components",
                     value=None,
@@ -220,6 +229,7 @@ def create_interface() -> gr.Interface:
             fn=visualizer.train_model,
             inputs=[
                 data_file,
+                data_group,
                 n_components,
                 kernel,
                 nu,
