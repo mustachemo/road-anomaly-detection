@@ -114,17 +114,19 @@ class TrainingVisualizer:
         """Train the model with visualization.
 
         Args:
-            data_path: Path to the dataset.
+            data_path: Path to the ROAD dataset HDF5 file.
             data_group: The group in the HDF5 file to load data from.
             n_components: Number of PCA components.
             kernel: SVM kernel type.
             nu: SVM nu parameter.
             gamma: SVM gamma parameter.
-            batch_size: Batch size for training.
+            batch_size: Batch size for data loading.
             progress: Gradio progress tracker.
 
         Returns:
-            Tuple of (training plot, status message).
+            A tuple containing:
+                - A matplotlib figure showing training progress
+                - A status message
         """
         try:
             # Initialize components
@@ -141,22 +143,66 @@ class TrainingVisualizer:
                 total_samples = loader.total_samples
                 n_batches = (total_samples + batch_size - 1) // batch_size
 
+                # First pass: collect all processed data for fitting
+                processed_data = []
                 for batch_idx in range(n_batches):
                     start_idx = batch_idx * batch_size
-                    X_batch, y_batch = loader.get_batch(start_idx)
+                    X_batch, _ = loader.get_batch(start_idx)
 
                     # Process batch
-                    metrics = self.process_batch(
-                        X_batch,
-                        y_batch,
-                        is_first_batch=(batch_idx == 0),
-                    )
+                    if batch_idx == 0:
+                        X_processed = self.feature_processor.fit_transform(X_batch)
+                    else:
+                        X_processed = self.feature_processor.transform(X_batch)
+
+                    processed_data.append(X_processed)
 
                     # Update progress
                     if progress is not None:
                         progress(
                             batch_idx / n_batches,
-                            desc=f"Batch {batch_idx + 1}/{n_batches}",
+                            desc=f"Processing batch {batch_idx + 1}/{n_batches}",
+                        )
+
+                # Fit the anomaly detector on all processed data
+                X_all = np.vstack(processed_data)
+                if X_all.shape[1] == 0:
+                    raise ValueError(
+                        "No features available after processing. Check PCA configuration."
+                    )
+                self.anomaly_detector.fit(X_all)
+
+                # Second pass: make predictions and collect metrics
+                for batch_idx in range(n_batches):
+                    start_idx = batch_idx * batch_size
+                    X_batch, y_batch = loader.get_batch(start_idx)
+
+                    # Process batch
+                    X_processed = self.feature_processor.transform(X_batch)
+
+                    # Get predictions
+                    predictions = self.anomaly_detector.predict(X_processed)
+                    decision_values = self.anomaly_detector.decision_function(
+                        X_processed
+                    )
+
+                    # Store predictions for visualization
+                    self.current_batch_predictions.append(decision_values)
+                    self.current_batch_labels.append(y_batch)
+
+                    # Calculate metrics
+                    anomaly_ratio = np.mean(predictions == -1)
+                    metrics = {
+                        "anomaly_ratio": float(anomaly_ratio),
+                        "batch_size": len(X_batch),
+                    }
+                    self.training_history.append(metrics)
+
+                    # Update progress
+                    if progress is not None:
+                        progress(
+                            batch_idx / n_batches,
+                            desc=f"Evaluating batch {batch_idx + 1}/{n_batches}",
                         )
 
             # Generate final plot

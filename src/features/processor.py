@@ -30,6 +30,7 @@ class FeatureProcessor:
         """
         self.n_components = n_components
         self.scaler = StandardScaler()
+        # Only initialize PCA if n_components is not None
         self.pca = PCA(n_components=n_components) if n_components is not None else None
 
     def _reshape_for_processing(self, X: np.ndarray) -> np.ndarray:
