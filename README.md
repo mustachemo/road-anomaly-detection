@@ -1,54 +1,98 @@
-# road-anomaly-detection
+# Road Anomaly Detection 🛣️
 
-## Repository Layout
+A Python-based tool for detecting anomalies in road surface images using machine learning. This project provides both a command-line interface and a web interface for training and using anomaly detection models.
 
-```text
-svm‑anomaly‑detection/
-├── README.md
-├── pyproject.toml            # dependency & tooling pinning (poetry / hatch / pdm)
-├── .env.example              # non‑secret environment variables
-├── .gitignore
-├── Makefile                  # one‑liners for common tasks
-├── data/
-│   ├── raw/                  # immutable source data
-│   ├── interim/              # scratch / sampled data
-│   └── processed/            # cleaned feature matrices & labels
-├── notebooks/                # exploratory, throw‑away research
-│   ├── 01_data_overview.ipynb
-│   ├── 02_feature_engineering.ipynb
-│   └── 03_svm_baseline.ipynb
+## Features
+
+- **Data Processing**: Efficient handling of road surface images using HDF5 format
+- **Feature Extraction**: Advanced feature processing with optional PCA dimensionality reduction
+- **Anomaly Detection**: One-class SVM-based anomaly detection
+- **Multiple Interfaces**:
+  - Command-line interface for batch processing
+  - Web interface (Gradio) for interactive training and visualization
+- **Progress Tracking**: Real-time progress monitoring during training and prediction
+- **Testing**: Comprehensive test suite for model validation
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/road-anomaly-detection.git
+cd road-anomaly-detection
+```
+
+2. Install dependencies using UV:
+```bash
+uv pip install -e .
+```
+
+## Usage
+
+### Command Line Interface
+
+Train a model:
+```bash
+uv run -m src.pipeline train data/road_dataset.h5 model.joblib
+```
+
+Predict anomalies:
+```bash
+uv run -m src.pipeline predict data/test_dataset.h5 model.joblib predictions.npy
+```
+
+### Web Interface
+
+Launch the Gradio web interface:
+```bash
+uv run -m src.web_app
+```
+
+The web interface provides:
+- Dataset upload and validation
+- Interactive model training with parameter adjustment
+- Real-time training progress visualization
+- Anomaly prediction and visualization
+
+## Project Structure
+
+```
+road-anomaly-detection/
 ├── src/
-│   ├── __init__.py
-│   ├── config/               # YAML configs (train / inference)
-│   ├── data/                 # ingestion, validation, splitting
-│   ├── features/             # feature engineering & scaling
-│   ├── models/               # One‑Class / binary SVM wrappers
-│   ├── evaluation/           # metrics & plots
-│   ├── pipeline.py           # single CLI entry‑point (train / predict)
-│   └── utils.py              # logging, timing, path helpers
-├── models/                   # serialised artefacts (joblib / ONNX)
-├── reports/
-│   └── figures/              # auto‑generated evaluation graphics
-├── tests/                    # pytest unit tests
-├── docker/
-│   ├── Dockerfile
-│   └── start.sh
-└── .github/
-    └── workflows/            # CI / CD (lint, tests, image build)
-````
+│   ├── data/
+│   │   └── loader.py          # Data loading and preprocessing
+│   ├── features/
+│   │   └── processor.py       # Feature extraction and processing
+│   ├── models/
+│   │   └── anomaly_detector.py # Anomaly detection model
+│   ├── pipeline.py            # Command-line interface
+│   └── web_app.py            # Web interface
+├── tests/
+│   └── test_anomaly_detector.py
+├── notebooks/
+│   └── dataset_exploration.ipynb
+└── pyproject.toml
+```
 
----
+## Development
 
-## What lives where & why
+### Running Tests
 
-| Layer / Dir            | Purpose                                                           | Key points                                        |
-| ---------------------- | ----------------------------------------------------------------- | ------------------------------------------------- |
-| **data/**              | Immutable lineage; raw stays read‑only                            | Makes experiments deterministic & auditable       |
-| **notebooks/**         | Interactive research                                              | Once logic stabilises, migrate to **src/**        |
-| **src/data/**          | Download, schema validation, deterministic train/val/test split   | Splits are frozen via on‑disk indices             |
-| **src/features/**      | Transformations (e.g. FFT → log‑mag → StandardScaler → PCA)       | Good features make kernels shine                  |
-| **src/models/**        | Thin wrappers around `sklearn.svm.*`                              | Encapsulate create → fit → predict → save         |
-| **pipeline.py**        | Orchestrator & CLI (`python -m svm_anomaly_detection.pipeline …`) | Trains or serves with one command                 |
-| **tests/**             | Fast (<1 s) unit tests with pytest                                | Keep coverage for critical paths                  |
-| **docker/**            | Parity from laptop to prod                                        | Image can run `pipeline.py predict` behind an API |
-| **.github/workflows/** | CI (lint, type‑check, unit tests) + optional CD                   | Fails fast before merge                           |
+```bash
+uv run pytest
+```
+
+### Code Style
+
+The project follows PEP 8 guidelines and uses type hints throughout the codebase.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
