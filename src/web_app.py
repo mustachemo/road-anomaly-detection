@@ -225,7 +225,6 @@ def create_interface() -> gr.Interface:
                 nu,
                 gamma,
                 batch_size,
-                gr.Progress(),
             ],
             outputs=[plot, status],
         )

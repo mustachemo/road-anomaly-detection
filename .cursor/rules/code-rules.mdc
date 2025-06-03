@@ -5,3 +5,4 @@ alwaysApply: true
 ---
 - Make sure everything follows best practices in a flat python structure
 - Make sure to commit regularly!
+- we will use uv instead of pip for everything
