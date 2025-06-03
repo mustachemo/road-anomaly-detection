@@ -64,27 +64,26 @@ def train_model(
             total_samples = loader.total_samples
             processed_data = []
 
-            with Progress() as progress:
-                task = progress.add_task(
-                    "[cyan]Processing data...", total=total_samples
-                )
+            console.print("[cyan]Processing data...[/cyan]")
+            for start_idx in range(0, total_samples, batch_size):
+                # Load batch
+                X_batch, _ = loader.get_batch(start_idx)
 
-                for start_idx in range(0, total_samples, batch_size):
-                    # Load batch
-                    X_batch, _ = loader.get_batch(start_idx)
+                # Process batch
+                if len(processed_data) == 0:
+                    # First batch: fit and transform
+                    X_processed = feature_processor.fit_transform(X_batch)
+                else:
+                    # Subsequent batches: transform only
+                    X_processed = feature_processor.transform(X_batch)
 
-                    # Process batch
-                    if len(processed_data) == 0:
-                        # First batch: fit and transform
-                        X_processed = feature_processor.fit_transform(X_batch)
-                    else:
-                        # Subsequent batches: transform only
-                        X_processed = feature_processor.transform(X_batch)
+                processed_data.append(X_processed)
 
-                    processed_data.append(X_processed)
-                    progress.update(
-                        task, completed=min(start_idx + batch_size, total_samples)
-                    )
+                # Print progress
+                progress = (start_idx + batch_size) / total_samples * 100
+                console.print(f"Progress: {progress:.1f}%", end="\r")
+
+            console.print()  # New line after progress
 
             # Combine processed batches
             X_processed = np.vstack(processed_data)
@@ -139,7 +138,7 @@ def predict_anomalies(
             total_samples = loader.total_samples
             all_predictions = []
 
-            with Progress() as progress:
+            with Progress(transient=True) as progress:
                 task = progress.add_task(
                     "[cyan]Predicting anomalies...", total=total_samples
                 )
